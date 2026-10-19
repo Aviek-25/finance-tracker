@@ -26,6 +26,12 @@ import {
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
   XAxis,
   YAxis,
   Tooltip,
@@ -96,6 +102,10 @@ function Dashboard() {
   const [category, setCategory] = useState('Food & Dining')
   const [budgetCategory, setBudgetCategory] = useState('Food & Dining')
   const [budgetAmount, setBudgetAmount] = useState('')
+  const [analyticsMonth, setAnalyticsMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -207,6 +217,142 @@ function Dashboard() {
     }))
     .filter(item => item.amount > 0)
     .sort((a, b) => b.amount - a.amount)
+
+  const analyticsTransactions = transactions.filter(
+    t => t.date.startsWith(analyticsMonth),
+  )
+
+  const analyticsIncome = analyticsTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const analyticsExpenses = analyticsTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const analyticsSavings = analyticsIncome - analyticsExpenses
+
+  const analyticsSavingsRate = analyticsIncome > 0
+    ? (analyticsSavings / analyticsIncome) * 100
+    : null
+
+  const analyticsExpenseTransactions = analyticsTransactions.filter(
+    t => t.type === 'expense',
+  )
+
+  const analyticsAverageExpense = analyticsExpenseTransactions.length > 0
+    ? analyticsExpenses / analyticsExpenseTransactions.length
+    : 0
+
+  const analyticsCategories = Array.from(
+    analyticsExpenseTransactions.reduce((map, transaction) => {
+      map.set(
+        transaction.category,
+        (map.get(transaction.category) ?? 0) + transaction.amount,
+      )
+      return map
+    }, new Map<string, number>()),
+  )
+    .map(([name, value]) => ({
+      name,
+      value,
+      percentage: analyticsExpenses > 0 ? (value / analyticsExpenses) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value)
+
+  const monthDate = new Date(`${analyticsMonth}-15T12:00:00`)
+  const validAnalyticsMonth = !Number.isNaN(monthDate.getTime())
+
+  const previousMonthDate = new Date(
+    monthDate.getFullYear(),
+    monthDate.getMonth() - 1,
+    15,
+  )
+
+  const previousMonth = [
+    previousMonthDate.getFullYear(),
+    String(previousMonthDate.getMonth() + 1).padStart(2, '0'),
+  ].join('-')
+
+  const previousMonthTransactions = transactions.filter(
+    t => t.date.startsWith(previousMonth),
+  )
+
+  const previousMonthExpenses = previousMonthTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const expenseChange = previousMonthExpenses > 0
+    ? ((analyticsExpenses - previousMonthExpenses) / previousMonthExpenses) * 100
+    : null
+
+  const monthlyTrend = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(
+      monthDate.getFullYear(),
+      monthDate.getMonth() - 5 + index,
+      15,
+    )
+    const monthKey = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+    ].join('-')
+    const rows = transactions.filter(t => t.date.startsWith(monthKey))
+
+    return {
+      month: date.toLocaleDateString('en-IN', { month: 'short' }),
+      income: rows.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
+      expenses: rows.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
+    }
+  })
+
+  const analyticsBudgets = budgets.filter(b => b.month.startsWith(analyticsMonth))
+
+  const budgetInsights = analyticsBudgets.flatMap(budget => {
+    const spent = analyticsExpenseTransactions
+      .filter(t => t.category === budget.category)
+      .reduce((sum, t) => sum + t.amount, 0)
+    const percentage = (spent / budget.amount) * 100
+
+    if (percentage >= 100) {
+      return [{
+        title: `${budget.category} budget exceeded`,
+        detail: `${money(spent)} spent against ${money(budget.amount)} budget.`,
+        tone: 'warning' as const,
+      }]
+    }
+    if (percentage >= 80) {
+      return [{
+        title: `${budget.category} budget nearly used`,
+        detail: `${Math.round(percentage)}% of the monthly limit has been used.`,
+        tone: 'warning' as const,
+      }]
+    }
+    return []
+  })
+
+  const financialInsights = [
+    ...(analyticsIncome > 0
+      ? [{
+          title: analyticsSavings >= 0 ? 'Positive cash flow' : 'Spending exceeds income',
+          detail: analyticsSavings >= 0
+            ? `You have ${money(analyticsSavings)} remaining after recorded expenses.`
+            : `Recorded expenses exceed income by ${money(Math.abs(analyticsSavings))}.`,
+          tone: analyticsSavings >= 0 ? 'positive' as const : 'warning' as const,
+        }]
+      : []),
+    ...(expenseChange !== null
+      ? [{
+          title: expenseChange > 0 ? 'Expenses increased' : expenseChange < 0 ? 'Expenses decreased' : 'Expenses unchanged',
+          detail: expenseChange === 0
+            ? 'Recorded expenses are unchanged from the previous month.'
+            : `Expenses are ${Math.abs(Math.round(expenseChange))}% ${expenseChange > 0 ? 'higher' : 'lower'} than the previous month.`,
+          tone: expenseChange > 0 ? 'warning' as const : 'positive' as const,
+        }]
+      : []),
+    ...budgetInsights,
+  ].slice(0, 5)
+
+  const chartColors = ['#34d399', '#a78bfa', '#60a5fa', '#fbbf24', '#f87171', '#2dd4bf']
 
   async function addTransaction(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -533,14 +679,125 @@ function Dashboard() {
           )}
 
           {active === 'Analytics' && (
-            <section className="rounded-2xl border border-white/10 bg-[#111114] p-6">
-              <h2 className="text-2xl font-semibold">Analytics</h2>
-              <p className="mt-2 text-sm text-zinc-500">Insights from your recorded transactions.</p>
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-white/[0.03] p-4"><p className="text-xs text-zinc-500">Transactions</p><p className="mt-2 text-xl font-semibold">{transactions.length}</p></div>
-                <div className="rounded-xl bg-white/[0.03] p-4"><p className="text-xs text-zinc-500">Average expense</p><p className="mt-2 text-xl font-semibold">{money(transactions.filter(t => t.type === 'expense').length ? expenses / transactions.filter(t => t.type === 'expense').length : 0)}</p></div>
-                <div className="rounded-xl bg-white/[0.03] p-4"><p className="text-xs text-zinc-500">Savings rate</p><p className="mt-2 text-xl font-semibold">{income > 0 ? `${Math.round(((income - expenses) / income) * 100)}%` : '—'}</p></div>
+            <section className="space-y-6">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+                <div>
+                  <h2 className="text-2xl font-semibold">Financial analytics<span className="text-emerald-400">.</span></h2>
+                  <p className="mt-2 text-sm text-zinc-500">Explore monthly cash flow, spending categories, and financial patterns.</p>
+                </div>
+                <label className="text-sm text-zinc-400">
+                  Select month
+                  <input
+                    type="month"
+                    value={analyticsMonth}
+                    onChange={e => { if (e.target.value) setAnalyticsMonth(e.target.value) }}
+                    className="mt-2 block rounded-xl border border-white/10 bg-[#19191d] px-3 py-2 text-white"
+                  />
+                </label>
               </div>
+
+              {loading ? (
+                <p className="rounded-2xl border border-white/[0.07] bg-[#111114] p-6 text-sm text-zinc-400">Loading analytics…</p>
+              ) : !validAnalyticsMonth ? (
+                <p className="rounded-2xl border border-white/[0.07] bg-[#111114] p-6 text-sm text-zinc-400">Choose a valid month to view analytics.</p>
+              ) : (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {[
+                      { label: 'Income', value: analyticsIncome },
+                      { label: 'Expenses', value: analyticsExpenses },
+                      { label: 'Net cash flow', value: analyticsSavings },
+                      { label: 'Average expense', value: analyticsAverageExpense },
+                    ].map(card => (
+                      <div key={card.label} className="rounded-2xl border border-white/[0.07] bg-[#111114] p-5">
+                        <p className="text-sm text-zinc-400">{card.label}</p>
+                        <p className="mt-3 break-words text-xl font-semibold">{money(card.value)}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+                    <section className="rounded-2xl border border-white/[0.07] bg-[#111114] p-5">
+                      <h3 className="font-semibold">Six-month cash flow</h3>
+                      <p className="mt-1 text-xs text-zinc-500">Income compared with expenses</p>
+                      <div className="mt-5 h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={monthlyTrend}>
+                            <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
+                            <XAxis dataKey="month" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} width={65} tickFormatter={value => value >= 1000 ? `₹${(value / 1000).toFixed(0)}k` : `₹${value}`} />
+                            <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 12 }} formatter={(value) => money(Number(value))} />
+                            <Legend />
+                            <Bar dataKey="income" name="Income" fill="#34d399" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="expenses" name="Expenses" fill="#a78bfa" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </section>
+
+                    <section className="rounded-2xl border border-white/[0.07] bg-[#111114] p-5">
+                      <h3 className="font-semibold">Expense categories</h3>
+                      <p className="mt-1 text-xs text-zinc-500">{monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</p>
+                      {analyticsCategories.length === 0 ? (
+                        <p className="py-12 text-center text-sm text-zinc-500">No expenses recorded for this month.</p>
+                      ) : (
+                        <>
+                          <div className="h-[240px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie data={analyticsCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={58} outerRadius={88} paddingAngle={3}>
+                                  {analyticsCategories.map((item, index) => <Cell key={item.name} fill={chartColors[index % chartColors.length]} />)}
+                                </Pie>
+                                <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 12 }} formatter={(value) => money(Number(value))} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="space-y-3">
+                            {analyticsCategories.map((item, index) => (
+                              <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColors[index % chartColors.length] }} />
+                                  <span className="truncate">{item.name}</span>
+                                </span>
+                                <span className="shrink-0 text-right">{money(item.value)} <span className="ml-2 text-xs text-zinc-500">{item.percentage.toFixed(1)}%</span></span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </section>
+                  </div>
+
+                  <section className="rounded-2xl border border-white/[0.07] bg-[#111114] p-5">
+                    <h3 className="font-semibold">Savings rate</h3>
+                    <p className="mt-1 text-sm text-zinc-500">Net cash flow as a percentage of recorded income</p>
+                    <p className="mt-4 text-3xl font-semibold">{analyticsSavingsRate === null ? '—' : `${analyticsSavingsRate.toFixed(1)}%`}</p>
+                    {analyticsSavingsRate !== null && (
+                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
+                        <div className={`h-full rounded-full ${analyticsSavingsRate >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`} style={{ width: `${Math.min(Math.abs(analyticsSavingsRate), 100)}%` }} />
+                      </div>
+                    )}
+                    <p className="mt-3 text-xs text-zinc-500">This is a calculated ratio, not a forecast. A negative rate means recorded expenses exceed recorded income.</p>
+                  </section>
+
+                  <section className="rounded-2xl border border-white/[0.07] bg-[#111114] p-5">
+                    <h3 className="font-semibold">Financial insights</h3>
+                    <p className="mt-1 text-sm text-zinc-500">Observations based on your saved transactions and budgets.</p>
+                    {financialInsights.length === 0 ? (
+                      <p className="mt-5 text-sm text-zinc-500">Add income, expenses, or monthly budgets to generate insights. A month-over-month comparison requires previous-month expenses.</p>
+                    ) : (
+                      <div className="mt-5 grid gap-3 md:grid-cols-2">
+                        {financialInsights.map((insight, index) => (
+                          <div key={`${insight.title}-${index}`} className={`rounded-xl border p-4 ${insight.tone === 'warning' ? 'border-amber-400/20 bg-amber-400/[0.06]' : 'border-emerald-400/20 bg-emerald-400/[0.05]'}`}>
+                            <h4 className="text-sm font-medium">{insight.title}</h4>
+                            <p className="mt-2 text-sm text-zinc-400">{insight.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
             </section>
           )}
 
