@@ -2,7 +2,7 @@
 
 A modern, responsive personal finance dashboard for tracking expenses, income, budgets, and spending patterns. Built with React, TypeScript, Vite, Tailwind CSS, and Supabase, with a premium **Midnight Rose** interface.
 
-🌐 **Live Demo:** [fin map](https://fin-tawny-xi.vercel.app/)
+🌐 **Live Demo:** [fin map](https://finance-tracker-beta-six-63.vercel.app/)
 
 ## ✨ Features
 
