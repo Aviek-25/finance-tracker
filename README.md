@@ -201,13 +201,13 @@ Potential enhancements include:
 - Improved mobile navigation.
 - Optional currency conversion using exchange-rate data.
 
-## 👨‍💻 Author
 
-**Aviek Pratap Singh**
 
-GitHub: [@Aviek-25](https://github.com/Aviek-25)
+
 
 ## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
 
 
 
