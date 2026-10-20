@@ -576,7 +576,7 @@ function Dashboard() {
         <div className="mb-8 flex items-center gap-3 px-1">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#D9A5CC] text-[#09070A] shadow-[0_0_22px_rgba(56,189,248,.24)]"><IndianRupee size={22} strokeWidth={2.5} /></div>
           <div>
-            <div className="flex items-center gap-2"><h1 className="text-lg font-bold tracking-tight">fin</h1><span className="rounded-md border border-[#D9A5CC]/50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-[#EAD7F0]">PRO</span></div>
+            <div className="flex items-center gap-2"><h1 className="text-lg font-bold tracking-tight">fin</h1><span className="rounded-md border border-[#D9A5CC]/50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-[#EAD7F0]">MAP</span></div>
             <p className="text-[10px] text-slate-400">Personal Finance</p>
           </div>
         </div>
@@ -610,7 +610,7 @@ function Dashboard() {
             <button aria-label="Open navigation" onClick={() => setMobileMenu(true)} className="text-zinc-400 lg:hidden"><Menu /></button>
             <div>
               <h2 className="text-[19px] font-bold tracking-tight">Finance Overview</h2>
-              <p className="mt-1 text-[11px] text-slate-400">Real-time cash flow, category breakdowns &amp; expense logging</p>
+              <p className="mt-1 text-[11px] text-slate-400">Your money, mapped clearly.</p>
             </div>
           </div>
           <div className="relative flex items-center gap-2">
