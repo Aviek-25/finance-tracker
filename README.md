@@ -209,7 +209,7 @@ GitHub: [@Aviek-25](https://github.com/Aviek-25)
 
 ## 📄 License
 
-Add a `LICENSE` file to the repository if you want to explicitly publish this project under an open-source license. Until a license is specified, the repository's reuse permissions are not explicitly granted.
+
 
 ---
 
